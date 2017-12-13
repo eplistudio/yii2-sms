@@ -1,0 +1,22 @@
+{
+    "name": "eplistudio/yii2-sms",
+    "description": "SMS Sender for Yii 2",
+    "keywords": ["yii", "sms"],
+    "type": "yii2-extension",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Li Haoxu",
+            "email": "haoxu.li@eplistudio.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "yiisoft/yii2": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "eplistudio\\yii2-sms\\": "src/"
+        }
+    }
+}
