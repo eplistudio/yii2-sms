@@ -2,9 +2,10 @@
 namespace eplistudio\sms\alidayu;
 
 use eplistudio\sms\SmsSenderInterface;
+use yii\base\Component;
 use yii\helpers\ArrayHelper;
 
-class SmsSender implements SmsSenderInterface
+class SmsSender extends Component implements SmsSenderInterface
 {
     const DOMAIN = 'dysmsapi.aliyuncs.com';
     /**
