@@ -16,7 +16,8 @@
     },
     "autoload": {
         "psr-4": {
-            "eplistudio\\yii2-sms\\": "src/"
+            "eplistudio\\sms\\": "src/",
+            "eplistudio\\sms\\alidayu": "src/alidayu/"
         }
     }
 }
