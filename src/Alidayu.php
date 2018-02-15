@@ -1,5 +1,5 @@
 <?php
-namespace eplistudio\sms\alidayu;
+namespace eplistudio\sms;
 
 use yii\base\Component;
 use yii\helpers\ArrayHelper;
