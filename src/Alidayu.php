@@ -1,13 +1,15 @@
 <?php
 namespace eplistudio\sms\alidayu;
 
-use eplistudio\sms\SmsSenderInterface;
 use yii\base\Component;
 use yii\helpers\ArrayHelper;
 
-class SmsSender extends Component implements SmsSenderInterface
+class Alidayu extends Component
 {
     const DOMAIN = 'dysmsapi.aliyuncs.com';
+
+    public $signName;
+
     /**
      * @var $accessKeyId string AccessKeyId (https://ak-console.aliyun.com/)
      */
@@ -97,32 +99,18 @@ class SmsSender extends Component implements SmsSenderInterface
         return file_get_contents($url, false, $context);
     }
 
-    public function send($model)
+    public function send($phoneNumbers, $code, $params = null, $outId = null)
     {
-        $className = $model::className();
-        switch ($className) {
-            case SendSms::className():
-                $properties = [
-                    'PhoneNumbers' => 'phoneNumbers',
-                    'SignName' => 'signName',
-                    'TemplateCode' => 'templateCode',
-                    'TemplateParam' => function (SendSms $model) {
-                        return json_encode($model->templateParams);
-                    },
-                    'OutId' => 'outId',
-                ];
-                break;
-            default:
-                $properties = [];
-                break;
-        }
-
-        $dataPacket = ArrayHelper::toArray($model, [
-            $className => $properties
-        ]);
+        $dataPacket = [
+            'PhoneNumbers' => $phoneNumbers,
+            'SignName' => $this->signName,
+            'TemplateCode' => $code,
+            'TemplateParam' => json_encode($params),
+            'OutId' => $outId,
+        ];
 
         // TODO 此处可能会抛出异常，注意catch
-        $content = $this->request(
+        return $this->request(
             self::DOMAIN,
             array_merge($dataPacket, array(
                 "RegionId" => "cn-shenzhen",
@@ -130,7 +118,5 @@ class SmsSender extends Component implements SmsSenderInterface
                 "Version" => "2017-05-25",
             ))
         );
-
-        return $content;
     }
 }
