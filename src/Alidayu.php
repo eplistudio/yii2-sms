@@ -2,23 +2,47 @@
 namespace eplistudio\sms;
 
 use yii\base\Component;
-use yii\helpers\ArrayHelper;
 
 class Alidayu extends Component
 {
     const DOMAIN = 'dysmsapi.aliyuncs.com';
 
+    const VERSION = '2017-05-25';
+
+    const BATCH_LIMITED = 1000;
+
+    const ACTION_SEND_SMS = 'SendSms';
+
+    const SIGNATURE_TYPE_HMAC_SHA1 = 'HMAC-SHA1';
+
+    /**
+     * 短信签名
+     * @var string
+     */
     public $signName;
 
     /**
-     * @var $accessKeyId string AccessKeyId (https://ak-console.aliyun.com/)
+     * 阿里大于访问授权ID
+     * @var string
      */
     public $accessKeyId;
 
     /**
-     * @var $accessKeySecret string AccessKeySecret
+     * 阿里大于访问授权密钥
+     * @var string
      */
     public $accessKeySecret;
+
+    /**
+     * 阿里大于服务结点
+     * @var string
+     */
+    public $endPointName = "cn-shenzhen";
+
+    /**
+     * @var string
+     */
+    public $regionId = "cn-shenzhen";
 
     /**
      * 生成签名并发起请求
@@ -29,28 +53,9 @@ class Alidayu extends Component
      */
     public function request($domain, $params)
     {
-        $apiParams = array_merge(array(
-            "SignatureMethod" => "HMAC-SHA1",
-            "SignatureNonce" => uniqid(mt_rand(0, 0xffff), true),
-            "SignatureVersion" => "1.0",
-            "AccessKeyId" => $this->accessKeyId,
-            "Timestamp" => gmdate("Y-m-d\TH:i:s\Z"),
-            "Format" => "JSON",
-        ), $params);
-        ksort($apiParams);
-
-        $sortedQueryStringTmp = "";
-        foreach ($apiParams as $key => $value) {
-            $sortedQueryStringTmp .= "&" . $this->encode($key) . "=" . $this->encode($value);
-        }
-
-        $stringToSign = "GET&%2F&" . $this->encode(substr($sortedQueryStringTmp, 1));
-
-        $sign = base64_encode(hash_hmac("sha1", $stringToSign, $this->accessKeySecret . "&", true));
-
-        $signature = $this->encode($sign);
-
-        $url = "http://{$domain}/?Signature={$signature}{$sortedQueryStringTmp}";
+        $signature = $this->_generateSignature($params, self::SIGNATURE_TYPE_HMAC_SHA1);
+        $sortedQueryString = $this->_sortedQueryString($params);
+        $url = "http://{$domain}/?Signature={$signature}{$sortedQueryString}";
 
         try {
             $content = $this->fetchContent($url);
@@ -60,6 +65,11 @@ class Alidayu extends Component
         }
     }
 
+    /**
+     * 替换URL字符
+     * @param $str
+     * @return null|string|string[]
+     */
     protected function encode($str)
     {
         $res = urlencode($str);
@@ -69,6 +79,11 @@ class Alidayu extends Component
         return $res;
     }
 
+    /**
+     * 获取请求返回信息
+     * @param $url
+     * @return bool|mixed|string
+     */
     protected function fetchContent($url)
     {
         if (function_exists("curl_init")) {
@@ -76,9 +91,7 @@ class Alidayu extends Component
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_TIMEOUT, 5);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                "x-sdk-client" => "php/2.0.0"
-            ));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ["x-sdk-client" => "php/2.0.0"]);
             $rtn = curl_exec($ch);
 
             if ($rtn === false) {
@@ -89,34 +102,113 @@ class Alidayu extends Component
             return $rtn;
         }
 
-        $context = stream_context_create(array(
-            "http" => array(
+        $context = stream_context_create([
+            "http" => [
                 "method" => "GET",
-                "header" => array("x-sdk-client: php/2.0.0"),
-            )
-        ));
+                "header" => ["x-sdk-client: php/2.0.0"],
+            ]
+        ]);
 
         return file_get_contents($url, false, $context);
     }
 
+    /**
+     * 发送短信
+     * @param $phoneNumbers
+     * @param $code
+     * @param null $params
+     * @param null $outId
+     * @return bool|\stdClass
+     */
     public function send($phoneNumbers, $code, $params = null, $outId = null)
     {
+        $combinedPhoneNumbers = $this->_combinedPhoneNumbers($phoneNumbers);
         $dataPacket = [
-            'PhoneNumbers' => $phoneNumbers,
+            'PhoneNumbers' => $combinedPhoneNumbers,
             'SignName' => $this->signName,
             'TemplateCode' => $code,
             'TemplateParam' => json_encode($params),
             'OutId' => $outId,
         ];
 
-        // TODO 此处可能会抛出异常，注意catch
         return $this->request(
             self::DOMAIN,
-            array_merge($dataPacket, array(
-                "RegionId" => "cn-shenzhen",
-                "Action" => "SendSms",
-                "Version" => "2017-05-25",
-            ))
+            array_merge($dataPacket, [
+                "RegionId" => $this->regionId,
+                "Action" => self::ACTION_SEND_SMS,
+                "Version" => self::VERSION,
+            ])
         );
+    }
+
+    /**
+     * 生成签名
+     * @param $params
+     * @param $method
+     * @param string $format
+     * @param string $dateFormat
+     * @return null|string|string[]
+     */
+    private function _generateSignature(&$params, $method, $format = "JSON", $dateFormat = "Y-m-d\TH:i:s\Z")
+    {
+
+        $params = array_merge([
+            "SignatureMethod" => $method,
+            "SignatureNonce" => uniqid(mt_rand(0, 0xffff), true),
+            "SignatureVersion" => "1.0",
+            "AccessKeyId" => $this->accessKeyId,
+            "Timestamp" => gmdate($dateFormat),
+            "Format" => $format,
+        ], $params);
+
+        $sortedQueryString = $this->_sortedQueryString($params);
+
+        $stringToSign = "GET&%2F&" . $this->encode(substr($sortedQueryString, 1));
+
+        $sign = base64_encode(hash_hmac("sha1", $stringToSign, $this->accessKeySecret . "&", true));
+
+        return $this->encode($sign);
+    }
+
+    /**
+     * 根据字典序排序参数并生成字符串
+     * @param $params
+     * @return string
+     */
+    private function _sortedQueryString($params)
+    {
+        ksort($params);
+        $sortedQueryString = "";
+        foreach ($params as $key => $value) {
+            $sortedQueryString .= "&" . $this->encode($key) . "=" . $this->encode($value);
+        }
+        return $sortedQueryString;
+    }
+
+    /**
+     * 处理手机号码
+     * @param $phoneNumbers
+     * @return array|bool|string
+     */
+    private function _combinedPhoneNumbers($phoneNumbers)
+    {
+        $count = 1;
+        if (is_array($phoneNumbers)) {
+            if (($count = count($phoneNumbers)) > self::BATCH_LIMITED) {
+                return false;
+            }
+
+            foreach ($phoneNumbers as $index => $phoneNumber) {
+                $phoneNumbers[$index] = intval($phoneNumber);
+            }
+
+            $phoneNumbers = implode(',', $phoneNumbers);
+        }
+
+        if (preg_match_all('/(13|14|15|17|18|19)[0-9]{9}(,)?/', $phoneNumbers) === $count) {
+            return $phoneNumbers;
+        }
+
+        return false;
     }
 }
