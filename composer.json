@@ -6,11 +6,10 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "Li Haoxu",
+            "name": "Li Hao Xu",
             "email": "haoxu.li@eplistudio.com"
         }
     ],
-    "minimum-stability": "stable",
     "require": {
         "yiisoft/yii2": "*"
     },

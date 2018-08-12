@@ -37,11 +37,6 @@ class Alidayu extends Component
      * 阿里大于服务结点
      * @var string
      */
-    public $endPointName = "cn-shenzhen";
-
-    /**
-     * @var string
-     */
     public $regionId = "cn-shenzhen";
 
     /**
@@ -49,7 +44,7 @@ class Alidayu extends Component
      *
      * @param $domain string API接口所在域名
      * @param $params array API具体参数
-     * @return bool|\stdClass 返回API接口调用结果，当发生错误时返回false
+     * @return bool|array 返回API接口调用结果，当发生错误时返回false
      */
     public function request($domain, $params)
     {
@@ -59,7 +54,7 @@ class Alidayu extends Component
 
         try {
             $content = $this->fetchContent($url);
-            return json_decode($content);
+            return json_decode($content, true);
         } catch (\Exception $e) {
             return false;
         }
@@ -67,6 +62,7 @@ class Alidayu extends Component
 
     /**
      * 替换URL字符
+     * 
      * @param $str
      * @return null|string|string[]
      */
@@ -81,25 +77,26 @@ class Alidayu extends Component
 
     /**
      * 获取请求返回信息
+     * 
      * @param $url
      * @return bool|mixed|string
      */
     protected function fetchContent($url)
     {
         if (function_exists("curl_init")) {
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ["x-sdk-client" => "php/2.0.0"]);
-            $rtn = curl_exec($ch);
+            $curl = curl_init();
+            curl_setopt($curl, CURLOPT_URL, $url);
+            curl_setopt($curl, CURLOPT_TIMEOUT, 5);
+            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($curl, CURLOPT_HTTPHEADER, ["x-sdk-client" => "php/2.0.0"]);
+            $return = curl_exec($curl);
 
-            if ($rtn === false) {
-                trigger_error("[CURL_" . curl_errno($ch) . "]: " . curl_error($ch), E_USER_ERROR);
+            if ($return === false) {
+                trigger_error("[CURL_" . curl_errno($curl) . "]: " . curl_error($curl), E_USER_ERROR);
             }
-            curl_close($ch);
+            curl_close($curl);
 
-            return $rtn;
+            return $return;
         }
 
         $context = stream_context_create([
@@ -115,19 +112,19 @@ class Alidayu extends Component
     /**
      * 发送短信
      * @param $phoneNumbers
-     * @param $code
-     * @param null $params
+     * @param $templateCode
+     * @param null $templateParam
      * @param null $outId
      * @return bool|\stdClass
      */
-    public function send($phoneNumbers, $code, $params = null, $outId = null)
+    public function send($phoneNumbers, $templateCode, $templateParam = null, $outId = null)
     {
-        $combinedPhoneNumbers = $this->_combinedPhoneNumbers($phoneNumbers);
+        $phoneNumbers = $this->_combinedPhoneNumbers($phoneNumbers);
         $dataPacket = [
-            'PhoneNumbers' => $combinedPhoneNumbers,
+            'PhoneNumbers' => $phoneNumbers,
             'SignName' => $this->signName,
-            'TemplateCode' => $code,
-            'TemplateParam' => json_encode($params),
+            'TemplateCode' => $templateCode,
+            'TemplateParam' => json_encode($templateParam),
             'OutId' => $outId,
         ];
 
