@@ -11,6 +11,7 @@ namespace eplistudio\sms;
 
 interface SmsRequest
 {
+    public static function httpMethod();
     public function generateSignature($key);
     public function exec();
 }

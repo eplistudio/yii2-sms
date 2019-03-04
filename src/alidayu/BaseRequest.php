@@ -2,6 +2,7 @@
 namespace eplistudio\sms\alidayu;
 
 
+use eplistudio\sms\SmsRequest;
 use yii\base\InvalidConfigException;
 use yii\base\Model;
 
@@ -10,15 +11,16 @@ abstract class BaseRequest extends Model implements SmsRequest
 {
     const BASE_URL = 'https://dysmsapi.aliyuncs.com';
 
-    const FORMAT_JSON = 'json';
-    const FORMAT_XML = 'xml';
+    const FORMAT_JSON = 'JSON';
+    const FORMAT_XML = 'XML';
 
     protected $accessKeyId;
     protected $accessKeySecret;
 
-    public $action;
-    public $format;
+    public $format = self::FORMAT_JSON;
     public $regionId;
+
+    private $_signatureNonce;
 
     public function __construct($accessKeyId, $accessKeySecret, $config = [])
     {
@@ -26,16 +28,22 @@ abstract class BaseRequest extends Model implements SmsRequest
         if (empty($accessKeyId)) {
             throw new InvalidConfigException("Property 'accessKeyId' must be set.");
         }
+        $this->accessKeyId = $accessKeyId;
 
         if (empty($accessKeySecret)) {
             throw new InvalidConfigException("Property 'accessKeySecret' must be set.");
         }
+        $this->accessKeySecret = $accessKeySecret;
+    }
+
+    public static function httpMethod()
+    {
+        return 'GET';
     }
 
     public function rules()
     {
         return [
-            [['action'], 'required'],
             [['format', 'regionId'], 'string'],
             [['format'], 'in', 'range' => [self::FORMAT_JSON, self::FORMAT_XML]],
         ];
@@ -56,6 +64,8 @@ abstract class BaseRequest extends Model implements SmsRequest
         ];
     }
 
+    abstract public function getAction();
+
     public function getAccessKeyId()
     {
         return $this->accessKeyId;
@@ -68,7 +78,11 @@ abstract class BaseRequest extends Model implements SmsRequest
 
     public function getSignatureNonce()
     {
-        return \Yii::$app->security->generateRandomString();
+        if ($this->_signatureNonce) {
+            return $this->_signatureNonce;
+        }
+        $this->_signatureNonce = \Yii::$app->security->generateRandomString();
+        return $this->_signatureNonce;
     }
 
     public function getSignatureVersion()
@@ -78,7 +92,7 @@ abstract class BaseRequest extends Model implements SmsRequest
 
     public function getTimestamp()
     {
-        return date('c');
+        return gmdate("Y-m-d\TH:i:s\Z");
     }
 
     public final function getVersion()
@@ -87,8 +101,7 @@ abstract class BaseRequest extends Model implements SmsRequest
     }
 
     public function generateSignature($key) {
-
-        $signatureBody = self::httpMethod() . '&' . $this->encode('/') . '&' . urlencode($this->queryString());
+        $signatureBody = self::httpMethod() . '&' . $this->encode('/') . '&' . urlencode(substr($this->queryString(), 0, -1));
         $signature = base64_encode(hash_hmac("sha1", $signatureBody, $key . "&", true));
         return $this->encode($signature);
     }
@@ -96,6 +109,7 @@ abstract class BaseRequest extends Model implements SmsRequest
     protected function queryString()
     {
         $queryParameters = $this->toArray();
+        $queryParameters = array_filter($queryParameters, 'strlen');
         ksort($queryParameters);
         $queryString = '';
         foreach ($queryParameters as $key => $value) {
@@ -123,6 +137,22 @@ abstract class BaseRequest extends Model implements SmsRequest
         $queryString = $this->queryString();
         $signature = $this->generateSignature($this->accessKeySecret);
         $requestUrl = self::BASE_URL . '/?' . $queryString . 'Signature=' . $signature;
+        if (function_exists("curl_init")) {
+            $curl = curl_init();
+            curl_setopt($curl, CURLOPT_URL, $requestUrl);
+            curl_setopt($curl, CURLOPT_TIMEOUT, 5);
+            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($curl, CURLOPT_HTTPHEADER, ["x-sdk-client" => "php/2.0.0"]);
+            $return = curl_exec($curl);
+
+            if ($return === false) {
+                trigger_error("[CURL_" . curl_errno($curl) . "]: " . curl_error($curl), E_USER_ERROR);
+            }
+            curl_close($curl);
+
+            return $return;
+        }
+
         $context = stream_context_create([
             "http" => [
                 "method" => self::httpMethod(),
