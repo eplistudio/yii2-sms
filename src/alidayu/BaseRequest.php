@@ -3,6 +3,7 @@ namespace eplistudio\sms\alidayu;
 
 
 use eplistudio\sms\SmsRequest;
+use yii\base\InvalidArgumentException;
 use yii\base\InvalidConfigException;
 use yii\base\Model;
 
@@ -108,6 +109,10 @@ abstract class BaseRequest extends Model implements SmsRequest
 
     protected function queryString()
     {
+        if (!$this->validate()) {
+            throw new InvalidArgumentException();
+        }
+
         $queryParameters = $this->toArray();
         $queryParameters = array_filter($queryParameters, 'strlen');
         ksort($queryParameters);

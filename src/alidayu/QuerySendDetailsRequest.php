@@ -27,8 +27,26 @@ class QuerySendDetailsRequest extends BaseRequest
     public function rules()
     {
         return ArrayHelper::merge(parent::rules(), [
-            [['currentPage', 'pageSize', 'phoneNumber', 'sendDate'], 'required'],
+            [['phoneNumber'], 'required'],
             [['bizId'], 'string'],
+            [['sendDate'], 'default', 'value' => date('Ymd')],
+            [['currentPage'], 'default', 'value' => 1],
+            [['pageSize'], 'default', 'value' => 20],
         ]);
+    }
+
+    public function fields()
+    {
+        return ArrayHelper::merge(parent::fields(), [
+            'CurrentPage' => 'currentPage',
+            'PageSize' => 'pageSize',
+            'PhoneNumber' => 'phoneNumber',
+            'SendDate' => 'sendDate',
+        ]);
+    }
+
+    public function getAction()
+    {
+        return 'QuerySendDetails';
     }
 }

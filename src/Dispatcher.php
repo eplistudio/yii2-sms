@@ -42,6 +42,20 @@ class Dispatcher extends Component
         $this->dispatch($messages);
     }
 
+    public function query($id, $condition = [])
+    {
+        $provider = $this->providers[$id];
+        if ($provider->enabled) {
+            try {
+                return $provider->query($condition);
+            } catch (\Exception $e) {
+                Yii::error($e->getMessage(), __METHOD__);
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Dispatches the sms messages to [[providers]].
      * @param array $messages sms messages. This property is managed by [[exec()]] and [[flush()]].

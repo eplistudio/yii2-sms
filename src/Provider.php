@@ -18,6 +18,12 @@ abstract class Provider extends Component
     abstract public function collect($messages);
 
     /**
+     * @param $condition
+     * @return mixed
+     */
+    abstract public function query($condition);
+
+    /**
      * Sets a value indicating whether this sms provider is enabled.
      * @param bool|callable $value a boolean value or a callable to obtain the value from.
      * The callable value is available since version 2.0.13.

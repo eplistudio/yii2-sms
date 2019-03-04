@@ -2,8 +2,10 @@
 namespace eplistudio\sms;
 
 
+use eplistudio\sms\alidayu\QuerySendDetailsRequest;
 use eplistudio\sms\alidayu\SendBatchSmsRequest;
 use yii\base\InvalidArgumentException;
+use yii\helpers\Inflector;
 
 class AlidayuProvider extends Provider
 {
@@ -60,5 +62,28 @@ class AlidayuProvider extends Provider
                 }
             }
         }
+    }
+
+    /**
+     * @param $condition
+     * @return mixed
+     */
+    public function query($condition)
+    {
+        try {
+            $querySendDetailsRequest = new QuerySendDetailsRequest($this->accessKeyId, $this->accessKeySecret);
+            $querySendDetailsRequest->load($this->addCamelCase($condition), '');
+            return $querySendDetailsRequest->exec();
+        } catch (\Exception $e) {
+            \Yii::error($e->getMessage(), __METHOD__);
+        }
+    }
+
+    private function addCamelCase($data)
+    {
+        foreach ($data as $key => $value) {
+            $data[lcfirst(Inflector::camelize($key))] = $value;
+        }
+        return $data;
     }
 }
